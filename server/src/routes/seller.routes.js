@@ -1,0 +1,28 @@
+const { Router } = require('express');
+const sellerController = require('../controllers/seller.controller');
+const auth = require('../middleware/auth');
+const requireRole = require('../middleware/requireRole');
+const validate = require('../middleware/validate');
+const { auctionCreateSchema, auctionUpdateSchema } = require('../middleware/schemas');
+const { uploadArray } = require('../middleware/upload');
+
+const router = Router();
+
+router.use(auth, requireRole('seller', 'admin'));
+
+router.get('/auctions', sellerController.mine);
+router.post(
+  '/auctions',
+  uploadArray,
+  validate(auctionCreateSchema),
+  sellerController.create
+);
+router.patch(
+  '/auctions/:id',
+  uploadArray,
+  validate(auctionUpdateSchema),
+  sellerController.update
+);
+router.delete('/auctions/:id', sellerController.cancel);
+
+module.exports = router;

@@ -1,0 +1,83 @@
+# ─── Dependencies ───────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+.yarn/
+jspm_packages/
+
+# ─── Environment ────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+*.env
+.env.example          # ← .env.example push hoga
+
+# ─── Build output ───────────────────────────────
+dist/
+build/
+out/
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
+
+# ─── Logs ───────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ─── Uploads (local files not to be pushed) ────
+server/uploads/
+uploads/
+*.sqlite
+*.db
+
+# ─── OS files ───────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ─── Editors / IDE ──────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─── Test / Coverage ────────────────────────────
+coverage/
+.nyc_output/
+*.lcov
+
+# ─── Cache ──────────────────────────────────────
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+
+# ─── Vercel / Deployment ────────────────────────
+.vercel
+.netlify
+
+# ─── Misc ───────────────────────────────────────
+tmp/
+temp/
+*.pid
+*.seed
+*.pid.lock
