@@ -10,3 +10,6 @@ export const listAuctionBidsApi = (auctionId, params) =>
 
 export const myBidsApi = (params) =>
   api.get('/my-bids', { params }).then((r) => r.data);
+// Delete your own bid
+export const deleteBidApi = (bidId) =>
+  api.delete(`/bids/${bidId}`).then((r) => r.data);

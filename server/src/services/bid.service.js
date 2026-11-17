@@ -56,4 +56,25 @@ async function listMyBids(user, query = {}) {
   return bidRepo.listForBidder(user.id, query);
 }
 
-module.exports = { placeBid, listAuctionBids, listMyBids };
+async function deleteBid(user, bidId) {
+  try {
+    return await bidRepo.deleteBidRpc({
+      bidId,
+      bidderId: user.id,
+    });
+  } catch (err) {
+    const statusCodes = {
+      BID_NOT_FOUND: 404,
+      AUCTION_NOT_ACTIVE: 400,
+      AUCTION_ENDED: 400,
+    };
+
+    if (statusCodes[err.code]) {
+      throw new ApiError(statusCodes[err.code], err.message);
+    }
+
+    throw err;
+  }
+}
+
+module.exports = { placeBid, listAuctionBids, listMyBids , deleteBid,};
