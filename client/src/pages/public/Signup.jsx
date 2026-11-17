@@ -45,6 +45,7 @@ export default function Signup() {
           <label className="mb-1 block text-sm font-medium">Full name</label>
           <input
             name="full_name"
+            placeholder="Enter your full name"
             required
             minLength={2}
             value={form.full_name}
@@ -57,6 +58,7 @@ export default function Signup() {
           <input
             type="email"
             name="email"
+            placeholder="Enter your email"
             required
             value={form.email}
             onChange={onChange}

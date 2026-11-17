@@ -44,6 +44,7 @@ export default function Login() {
           <input
             type="email"
             name="email"
+            placeholder="Enter your email"
             required
             value={form.email}
             onChange={onChange}
@@ -53,6 +54,7 @@ export default function Login() {
         <div>
           <label className="mb-1 block text-sm font-medium">Password</label>
           <PasswordInput
+          placeholder="Enter your password"
             name="password"
             value={form.password}
             onChange={onChange}

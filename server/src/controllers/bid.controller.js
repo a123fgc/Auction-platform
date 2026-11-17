@@ -54,4 +54,34 @@ const mine = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
-module.exports = { place, listForAuction, mine };
+const remove = asyncHandler(async (req, res) => {
+  const { bidId } = req.params;
+
+  // Validate UUID
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  if (!uuidRegex.test(bidId)) {
+    const ApiError = require('../utils/ApiError');
+    throw ApiError.badRequest('Invalid bid ID');
+  }
+
+  const result = await bidService.deleteBid(req.user, bidId);
+
+  const auction = result.auction;
+
+  // Notify connected clients about the updated auction price
+  emitAuctionUpdate(auction.id, {
+    auctionId: auction.id,
+    currentPrice: Number(auction.current_price),
+    endsAt: auction.ends_at,
+  });
+
+  res.json({
+    message: 'Bid deleted successfully',
+    bid: result.bid,
+    auction: result.auction,
+  });
+});
+
+module.exports = { place, listForAuction, mine, remove, };

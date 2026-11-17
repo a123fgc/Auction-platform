@@ -93,10 +93,48 @@ async function previousHighestBidder(auctionId, beforeIso) {
   return data;
 }
 
+async function deleteBidRpc({ bidId, bidderId }) {
+  const { data, error } = await supabase.rpc('delete_bid', {
+    p_bid_id: bidId,
+    p_bidder_id: bidderId,
+  });
+
+  if (error) {
+    const msg = error.message || '';
+
+    if (msg.includes('BID_NOT_FOUND_OR_FORBIDDEN') ||
+        msg.includes('BID_NOT_FOUND')) {
+      throw Object.assign(
+        new Error('Bid not found or you are not authorized to delete it'),
+        { code: 'BID_NOT_FOUND' }
+      );
+    }
+
+    if (msg.includes('AUCTION_NOT_ACTIVE')) {
+      throw Object.assign(
+        new Error('Bids cannot be deleted from an inactive auction'),
+        { code: 'AUCTION_NOT_ACTIVE' }
+      );
+    }
+
+    if (msg.includes('AUCTION_ENDED')) {
+      throw Object.assign(
+        new Error('This auction has already ended'),
+        { code: 'AUCTION_ENDED' }
+      );
+    }
+
+    throw error;
+  }
+
+  return data;
+}
+
 module.exports = {
   placeBidRpc,
   listForAuction,
   listForBidder,
   highestBidder,
   previousHighestBidder,
+  deleteBidRpc,
 };

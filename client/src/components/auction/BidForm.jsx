@@ -37,7 +37,7 @@ export default function BidForm({
       </div>
     );
   }
-  if (user.role !== 'buyer' && user.role !== 'admin') {
+  if (user.role !== 'buyer' ) {
     return (
       <div className="rounded-lg bg-slate-100 p-3 text-sm text-slate-600">
         Only buyers can bid.

@@ -40,4 +40,13 @@ router.get(
   bidController.mine
 );
 
+// Protected: delete your own bid
+router.delete(
+  '/bids/:bidId',
+  auth,
+  requireRole('buyer', 'admin'),
+  bidController.remove
+);
+
+
 module.exports = router;
