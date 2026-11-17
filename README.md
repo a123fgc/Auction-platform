@@ -7,8 +7,10 @@ auto-close job, winner emails, and an admin dashboard.
 
 - **Backend:** Node.js + Express + Supabase (Postgres) + Socket.IO + Cloudinary + Nodemailer
 - **Frontend:** React 18 + Vite + TailwindCSS + React Router + Axios
-- **Auth:** JWT in an HTTP-only cookie, bcrypt
+- **Auth:** JWT in an HTTP-only cookie and browser localStorage bearer token, bcrypt
 - **Realtime:** Socket.IO rooms (`auction:<id>`)
+
+The browser bearer token is stored in localStorage at the user's request. This makes it readable to JavaScript and increases the impact of an XSS vulnerability; cookie-only HttpOnly auth is safer for production.
 
 ## Project layout
 

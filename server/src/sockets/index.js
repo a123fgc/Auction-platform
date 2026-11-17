@@ -47,7 +47,14 @@ function initSocket(httpServer) {
 
   // Auction streams are public; valid cookies are upgraded to authenticated sockets.
   io.use(async (socket, next) => {
-    const token = readCookie(socket.handshake.headers.cookie, env.COOKIE_NAME);
+    const authToken = typeof socket.handshake.auth?.token === 'string'
+      ? socket.handshake.auth.token
+      : null;
+    const authorization = socket.handshake.headers.authorization || '';
+    const bearerToken = authorization.match(/^Bearer\s+(.+)$/i)?.[1] || null;
+    const token = authToken
+      || bearerToken
+      || readCookie(socket.handshake.headers.cookie, env.COOKIE_NAME);
     if (!token) return next();
 
     let payload;
