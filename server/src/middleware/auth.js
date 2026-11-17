@@ -9,8 +9,6 @@ const auth = asyncHandler(async (req, res, next) => {
 
   if (req.cookies && req.cookies[env.COOKIE_NAME]) {
     token = req.cookies[env.COOKIE_NAME];
-  } else if (req.headers.authorization?.startsWith('Bearer ')) {
-    token = req.headers.authorization.slice(7);
   }
 
   if (!token) throw ApiError.unauthorized('Not authenticated');
@@ -24,6 +22,9 @@ const auth = asyncHandler(async (req, res, next) => {
 
   const user = await userRepo.findById(payload.sub);
   if (!user) throw ApiError.unauthorized('User no longer exists');
+  if (!Number.isInteger(payload.sv) || payload.sv !== user.session_version) {
+    throw ApiError.unauthorized('Session has been revoked');
+  }
   if (user.is_suspended) throw ApiError.forbidden('Account suspended');
 
   req.user = user;

@@ -85,7 +85,17 @@ async function cancelAuction(user, auctionId) {
   if (auction.status !== 'active') {
     throw ApiError.badRequest('Only active auctions can be cancelled');
   }
-  return auctionRepo.cancel(auctionId);
+  let cancelled;
+  try {
+    cancelled = await auctionRepo.cancel(auctionId, user.id);
+  } catch (error) {
+    if (error.message?.includes('CANCEL_NOT_ALLOWED')) {
+      throw ApiError.forbidden('You can only cancel your own auctions');
+    }
+    throw error;
+  }
+  if (!cancelled) throw ApiError.badRequest('Only active auctions can be cancelled');
+  return (await auctionRepo.findById(auctionId)) || cancelled;
 }
 
 async function getAuction(id) {

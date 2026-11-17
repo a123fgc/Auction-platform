@@ -26,24 +26,24 @@ const update = asyncHandler(async (req, res) => {
 
   const auction = await auctionService.updateAuction(
     req.user,
-    req.params.id,
+    req.validatedParams.id,
     patch
   );
   res.json({ auction });
 });
 
 const cancel = asyncHandler(async (req, res) => {
-  const auction = await auctionService.cancelAuction(req.user, req.params.id);
+  const auction = await auctionService.cancelAuction(req.user, req.validatedParams.id);
   res.json({ auction });
 });
 
 const mine = asyncHandler(async (req, res) => {
   const result = await auctionRepo.list({
-    page: Number(req.query.page || 1),
-    limit: Math.min(Number(req.query.limit || 12), 48),
+    page: req.validatedQuery.page,
+    limit: req.validatedQuery.limit,
     sellerId: req.user.id,
-    status: req.query.status || null, // active | ended | cancelled | null=all
-    sort: req.query.sort || 'newest',
+    status: req.validatedQuery.status || null, // active | ended | cancelled | null=all
+    sort: req.validatedQuery.sort,
   });
   res.json(result);
 });

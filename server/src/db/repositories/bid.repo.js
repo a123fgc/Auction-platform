@@ -69,6 +69,8 @@ async function highestBidder(auctionId) {
     .select('bidder_id, amount, users!bids_bidder_id_fkey ( email, full_name )')
     .eq('auction_id', auctionId)
     .order('amount', { ascending: false })
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error) throw error;
@@ -83,6 +85,8 @@ async function previousHighestBidder(auctionId, beforeIso) {
     .eq('auction_id', auctionId)
     .lt('created_at', beforeIso)
     .order('amount', { ascending: false })
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error) throw error;

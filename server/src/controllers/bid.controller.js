@@ -3,7 +3,7 @@ const { emitNewBid, emitAuctionUpdate } = require('../sockets');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 const place = asyncHandler(async (req, res) => {
-  const { auctionId } = req.params;
+  const { auctionId } = req.validatedParams;
   const { amount } = req.body;
 
   const { bid, auction, previousBidderId } = await bidService.placeBid(
@@ -36,20 +36,20 @@ const place = asyncHandler(async (req, res) => {
 });
 
 const listForAuction = asyncHandler(async (req, res) => {
-  const { auctionId } = req.params;
-  const { page = 1, limit = 20 } = req.query;
+  const { auctionId } = req.validatedParams;
+  const { page, limit } = req.validatedQuery;
   const result = await bidService.listAuctionBids(auctionId, {
-    page: Number(page),
-    limit: Math.min(Number(limit), 50),
+    page,
+    limit,
   });
   res.json(result);
 });
 
 const mine = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 20 } = req.query;
+  const { page, limit } = req.validatedQuery;
   const result = await bidService.listMyBids(req.user, {
-    page: Number(page),
-    limit: Math.min(Number(limit), 50),
+    page,
+    limit,
   });
   res.json(result);
 });

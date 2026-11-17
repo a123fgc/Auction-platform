@@ -1,8 +1,5 @@
 const bidRepo = require('../db/repositories/bid.repo');
 const auctionRepo = require('../db/repositories/auction.repo');
-const userRepo = require('../db/repositories/user.repo');
-const emailService = require('./email.service');
-const outbidEmail = require('../emails/templates/outbid');
 const ApiError = require('../utils/ApiError');
 
 const CODE_TO_STATUS = {
@@ -47,28 +44,6 @@ async function placeBid(user, auctionId, amount) {
 
   // Fetch fresh auction (ends_at may have been extended by anti-sniping)
   const freshAuction = await auctionRepo.findById(auctionId);
-
-  // Notify previous highest bidder if they are different
-  if (
-    prevTop &&
-    prevTop.bidder_id !== user.id &&
-    prevTop.users?.email
-  ) {
-    const tpl = outbidEmail({
-      name: prevTop.users.full_name,
-      auctionTitle: freshAuction.title,
-      auctionUrl: outbidEmail.buildAuctionUrl(auctionId),
-      newAmount: prevTop.amount,
-      currentAmount: Number(amount),
-    });
-    // Fire-and-forget
-    emailService.send({
-      to: prevTop.users.email,
-      subject: tpl.subject,
-      html: tpl.html,
-      text: tpl.text,
-    });
-  }
 
   return { bid, auction: freshAuction, previousBidderId: prevTop?.bidder_id || null };
 }

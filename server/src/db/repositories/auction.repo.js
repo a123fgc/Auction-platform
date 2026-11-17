@@ -1,4 +1,5 @@
 const supabase = require('../../config/supabase');
+const { quoteFilterValue, escapeLikePattern } = require('../../utils/postgrestSearch');
 
 const AUCTION_SELECT = `
   id, seller_id, category_id, title, description, images,
@@ -32,6 +33,16 @@ async function findById(id) {
   return data;
 }
 
+async function exists(id) {
+  const { data, error } = await supabase
+    .from('auctions')
+    .select('id')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return Boolean(data);
+}
+
 async function update(id, patch) {
   const { data, error } = await supabase
     .from('auctions')
@@ -63,9 +74,8 @@ async function list({
   if (categoryId) query = query.eq('category_id', categoryId);
   if (sellerId) query = query.eq('seller_id', sellerId);
   if (search) {
-    query = query.or(
-      `title.ilike.%${search}%,description.ilike.%${search}%`
-    );
+    const pattern = quoteFilterValue(`%${escapeLikePattern(search)}%`);
+    query = query.or(`title.ilike.${pattern},description.ilike.${pattern}`);
   }
 
   if (sort === 'ending_soon') {
@@ -95,28 +105,31 @@ async function listExpiredActive() {
   return data;
 }
 
-async function markEnded(id, winnerId) {
-  const { data, error } = await supabase
-    .from('auctions')
-    .update({ status: 'ended', winner_id: winnerId })
-    .eq('id', id)
-    .eq('status', 'active')
-    .select(AUCTION_SELECT)
-    .maybeSingle();
+async function closeAtomic(id, force = false) {
+  const { data, error } = await supabase.rpc('close_auction_atomic', {
+    p_auction_id: id,
+    p_force: force,
+  });
   if (error) throw error;
-  return data; // null means someone else already closed it
+  return Array.isArray(data) ? data[0] || null : data;
 }
 
-async function cancel(id) {
-  return update(id, { status: 'cancelled' });
+async function cancel(id, actorId) {
+  const { data, error } = await supabase.rpc('cancel_auction_with_notifications', {
+    p_auction_id: id,
+    p_actor_id: actorId,
+  });
+  if (error) throw error;
+  return Array.isArray(data) ? data[0] || null : data;
 }
 
 module.exports = {
   create,
   findById,
+  exists,
   update,
   list,
   listExpiredActive,
-  markEnded,
+  closeAtomic,
   cancel,
 };

@@ -21,8 +21,16 @@ async function signup({ email, password, full_name, role }) {
     role,
   });
 
-  const token = signToken({ sub: user.id, role: user.role });
-  return { user, token };
+  const token = signToken({ sub: user.id, role: user.role, sv: user.session_version });
+  return {
+    user: {
+      id: user.id,
+      email: user.email,
+      full_name: user.full_name,
+      role: user.role,
+    },
+    token,
+  };
 }
 
 async function login({ email, password }) {
@@ -33,7 +41,7 @@ async function login({ email, password }) {
   const ok = await bcrypt.compare(password, user.password_hash);
   if (!ok) throw ApiError.unauthorized('Invalid email or password');
 
-  const token = signToken({ sub: user.id, role: user.role });
+  const token = signToken({ sub: user.id, role: user.role, sv: user.session_version });
   return {
     user: {
       id: user.id,
@@ -48,7 +56,12 @@ async function login({ email, password }) {
 async function me(userId) {
   const user = await userRepo.findById(userId);
   if (!user) throw ApiError.notFound('User not found');
-  return user;
+  const { session_version, ...publicUser } = user;
+  return publicUser;
 }
 
-module.exports = { signup, login, me };
+async function logout(user) {
+  await userRepo.revokeSessions(user.id, user.session_version);
+}
+
+module.exports = { signup, login, logout, me };

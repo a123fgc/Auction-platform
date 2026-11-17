@@ -7,12 +7,14 @@ create or replace function public.place_bid(
 returns public.bids
 language plpgsql
 security definer
+set search_path = pg_catalog, public
 as $$
 declare
   v_auction public.auctions;
   v_bid public.bids;
   v_min numeric;
   v_new_end timestamptz;
+  v_now timestamptz;
 begin
   -- lock auction row
   select * into v_auction
@@ -24,11 +26,14 @@ begin
     raise exception 'AUCTION_NOT_FOUND';
   end if;
 
+  -- Evaluate expiry after acquiring the row lock, not at transaction start.
+  v_now := clock_timestamp();
+
   if v_auction.status <> 'active' then
     raise exception 'AUCTION_NOT_ACTIVE';
   end if;
 
-  if now() >= v_auction.ends_at then
+  if v_now >= v_auction.ends_at then
     raise exception 'AUCTION_ENDED';
   end if;
 
@@ -47,7 +52,7 @@ begin
   returning * into v_bid;
 
   -- anti-sniping: extend if < 60s left
-  if v_auction.ends_at - now() < interval '60 seconds' then
+  if v_auction.ends_at - v_now < interval '60 seconds' then
     v_new_end := v_auction.ends_at + interval '60 seconds';
   else
     v_new_end := v_auction.ends_at;
@@ -62,3 +67,6 @@ begin
   return v_bid;
 end;
 $$;
+
+revoke all on function public.place_bid(uuid, uuid, numeric) from public, anon, authenticated;
+grant execute on function public.place_bid(uuid, uuid, numeric) to service_role;
