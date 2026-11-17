@@ -4,6 +4,8 @@ const auctionRepo = require('../db/repositories/auction.repo');
 const userRepo = require('../db/repositories/user.repo');
 const supabase = require('../config/supabase');
 const { asyncHandler, ApiError } = require('../middleware/errorHandler');
+const { containsPattern } = require('../utils/postgrestSearch');
+const { disconnectUserSockets } = require('../sockets');
 
 const stats = asyncHandler(async (req, res) => {
   const [overview, recentAuctions, recentBids] = await Promise.all([
@@ -15,10 +17,10 @@ const stats = asyncHandler(async (req, res) => {
 });
 
 const listUsers = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 20, role, search } = req.query;
+  const { page, limit, role, search } = req.validatedQuery;
   const result = await userRepo.listAll({
-    page: Number(page),
-    limit: Math.min(Number(limit), 50),
+    page,
+    limit,
     role,
     search,
   });
@@ -26,17 +28,19 @@ const listUsers = asyncHandler(async (req, res) => {
 });
 
 const suspendUser = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { suspended = true } = req.body;
+  const { id } = req.validatedParams;
+  const { suspended } = req.body;
   const target = await userRepo.findById(id);
   if (!target) throw ApiError.notFound('User not found');
+  if (target.id === req.user.id) throw ApiError.forbidden('You cannot suspend yourself');
   if (target.role === 'admin') throw ApiError.forbidden('Cannot suspend admin');
   const updated = await userRepo.setSuspended(id, Boolean(suspended));
+  if (updated.is_suspended) disconnectUserSockets(updated.id);
   res.json({ user: updated });
 });
 
 const listAuctions = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 20, status, search } = req.query;
+  const { page, limit, status, search } = req.validatedQuery;
 
   let query = supabase
     .from('auctions')
@@ -46,19 +50,19 @@ const listAuctions = asyncHandler(async (req, res) => {
     );
 
   if (status) query = query.eq('status', status);
-  if (search) query = query.ilike('title', `%${search}%`);
+  if (search) query = query.ilike('title', containsPattern(search));
 
-  const from = (Number(page) - 1) * Number(limit);
+  const from = (page - 1) * limit;
   const { data, error, count } = await query
     .order('created_at', { ascending: false })
-    .range(from, from + Number(limit) - 1);
+    .range(from, from + limit - 1);
 
   if (error) throw error;
-  res.json({ data, total: count, page: Number(page), limit: Number(limit) });
+  res.json({ data, total: count, page, limit });
 });
 
 const removeAuction = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.validatedParams;
   const auction = await auctionRepo.findById(id);
   if (!auction) throw ApiError.notFound('Auction not found');
 
@@ -69,7 +73,7 @@ const removeAuction = asyncHandler(async (req, res) => {
 });
 
 const closeAuction = asyncHandler(async (req, res) => {
-  const auction = await auctionRepo.findById(req.params.id);
+  const auction = await auctionRepo.findById(req.validatedParams.id);
   if (!auction) throw ApiError.notFound('Auction not found');
   if (auction.status !== 'active') {
     throw ApiError.badRequest('Auction is not active');

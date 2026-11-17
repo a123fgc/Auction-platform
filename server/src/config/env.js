@@ -1,6 +1,11 @@
 const dotenv = require('dotenv');
 dotenv.config();
 
+if (process.env.NODE_ENV === 'production' && !process.env.CLIENT_URL && !process.env.CLIENT_URLS) {
+  console.error('[env] CLIENT_URL or CLIENT_URLS must be configured in production');
+  process.exit(1);
+}
+
 const required = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'JWT_SECRET'];
 for (const key of required) {
   if (!process.env[key]) {
@@ -10,10 +15,26 @@ for (const key of required) {
   }
 }
 
+const configuredClientOrigins = (process.env.CLIENT_URLS || process.env.CLIENT_URL || 'https://client-rose-two-77.vercel.app')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+  .map((origin) => new URL(origin).origin);
+const CLIENT_ORIGINS = process.env.NODE_ENV === 'production'
+  ? configuredClientOrigins
+  : [...new Set([...configuredClientOrigins, 'https://client-rose-two-77.vercel.app', 'http://localhost:5173'])]; // Add localhost for development
+
+const port = Number(process.env.PORT || 5000);
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  console.error('[env] PORT must be an integer between 1 and 65535');
+  process.exit(1);
+}
+
 module.exports = {
-  PORT: Number(process.env.PORT || 5000),
+  PORT: port,
   NODE_ENV: process.env.NODE_ENV || 'development',
-  CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:5173',
+  CLIENT_URL: configuredClientOrigins[0],
+  CLIENT_ORIGINS,
   SUPABASE_URL: process.env.SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,

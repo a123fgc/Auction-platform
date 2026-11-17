@@ -1,10 +1,4 @@
 const auctionRepo = require('../db/repositories/auction.repo');
-const bidRepo = require('../db/repositories/bid.repo');
-const userRepo = require('../db/repositories/user.repo');
-const emailService = require('./email.service');
-const wonEmail = require('../emails/templates/won');
-const soldEmail = require('../emails/templates/sold');
-const auctionEndedEmail = require('../emails/templates/auctionEnded');
 const { emitAuctionEnded } = require('../sockets');
 
 /**
@@ -14,72 +8,11 @@ const { emitAuctionEnded } = require('../sockets');
  * Returns the closed auction or null if it was already closed / not yet expired.
  */
 async function closeOne(auction, { force = false } = {}) {
-  const fresh = await auctionRepo.findById(auction.id);
-  if (!fresh || fresh.status !== 'active') return null;
-
-  // Unless forced, skip auctions that haven't actually expired yet
-  if (!force && new Date(fresh.ends_at).getTime() > Date.now()) return null;
-
-  // Find highest bidder (may be null if no bids)
-  const top = await bidRepo.highestBidder(auction.id);
-  const winnerId = top?.bidder_id || null;
-
-  // Atomic close: only succeeds if still 'active' (idempotent)
-  const closed = await auctionRepo.markEnded(auction.id, winnerId);
-  if (!closed) return null; // lost the race — someone else closed it
-
-  // Fetch users for emails
-  const [winner, seller] = await Promise.all([
-    winnerId ? userRepo.findById(winnerId) : null,
-    userRepo.findById(fresh.seller_id),
-  ]);
-
-  const auctionUrl = wonEmail.buildAuctionUrl(auction.id);
-
-  if (winnerId && top) {
-    if (winner?.email) {
-      const tpl = wonEmail({
-        name: winner.full_name,
-        auctionTitle: fresh.title,
-        auctionUrl,
-        amount: top.amount,
-        sellerName: seller?.full_name,
-      });
-      await emailService.send({
-        to: winner.email,
-        subject: tpl.subject,
-        html: tpl.html,
-        text: tpl.text,
-      });
-    }
-    if (seller?.email) {
-      const tpl = soldEmail({
-        name: seller.full_name,
-        auctionTitle: fresh.title,
-        auctionUrl,
-        amount: top.amount,
-        winnerName: winner?.full_name,
-      });
-      await emailService.send({
-        to: seller.email,
-        subject: tpl.subject,
-        html: tpl.html,
-        text: tpl.text,
-      });
-    }
-  } else if (seller?.email) {
-    const tpl = auctionEndedEmail({
-      name: seller.full_name,
-      auctionTitle: fresh.title,
-      auctionUrl,
-    });
-    await emailService.send({
-      to: seller.email,
-      subject: tpl.subject,
-      html: tpl.html,
-      text: tpl.text,
-    });
-  }
+  // The RPC locks the row, closes atomically, and queues its emails in the same transaction.
+  const closedRecord = await auctionRepo.closeAtomic(auction.id, force);
+  if (!closedRecord) return null;
+  const closed = await auctionRepo.findById(closedRecord.id) || closedRecord;
+  const winnerId = closedRecord.winner_id || null;
 
   // Broadcast to live viewers
   emitAuctionEnded(auction.id, {

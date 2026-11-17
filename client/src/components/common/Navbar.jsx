@@ -1,3 +1,4 @@
+
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
@@ -10,66 +11,117 @@ export default function Navbar() {
     navigate('/login');
   };
 
+  const navLinkClass = ({ isActive }) =>
+    `rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
+      isActive
+        ? 'bg-blue-50 text-blue-700'
+        : 'text-slate-600 hover:bg-slate-100 hover:text-blue-700'
+    }`;
+
   return (
-    <header className="border-b border-slate-200 bg-white">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link to="/" className="text-lg font-bold text-brand-600">
-          🔨 AuctionHub
+    <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 shadow-sm backdrop-blur-md">
+      <nav className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:px-8">
+
+        {/* Logo */}
+        <Link
+          to="/"
+          className="flex w-fit items-center gap-2.5"
+          aria-label="AuctionHub Home"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-700 text-xl shadow-sm">
+            🔨
+          </span>
+
+          <span className="text-xl font-extrabold tracking-tight text-slate-900">
+            Auction<span className="text-blue-700">Hub</span>
+          </span>
         </Link>
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <NavLink to="/browse" className="hover:text-brand-600">
-            Browse
+
+        {/* Navigation */}
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+
+          <NavLink to="/browse" className={navLinkClass}>
+            Browse Auctions
           </NavLink>
 
           {(user?.role === 'buyer' || user?.role === 'admin') && (
-            <NavLink to="/my-bids" className="hover:text-brand-600">
+            <NavLink to="/my-bids" className={navLinkClass}>
               My Bids
             </NavLink>
           )}
+
           {(user?.role === 'seller' || user?.role === 'admin') && (
-            <NavLink to="/seller/auctions" className="hover:text-brand-600">
+            <NavLink to="/seller/auctions" className={navLinkClass}>
               My Auctions
             </NavLink>
           )}
 
+          {/* Admin Navigation */}
           {user?.role === 'admin' && (
-            <div className="flex items-center gap-2 rounded bg-slate-100 px-2 py-1 text-xs">
-              <NavLink to="/admin" end className="hover:text-brand-600">
+            <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
+              <NavLink to="/admin" end className={navLinkClass}>
                 Dashboard
               </NavLink>
-              <span className="text-slate-300">|</span>
-              <NavLink to="/admin/users" className="hover:text-brand-600">
+
+              <NavLink to="/admin/users" className={navLinkClass}>
                 Users
               </NavLink>
-              <span className="text-slate-300">|</span>
-              <NavLink to="/admin/auctions" className="hover:text-brand-600">
+
+              <NavLink to="/admin/auctions" className={navLinkClass}>
                 Auctions
               </NavLink>
             </div>
           )}
 
+          {/* Authenticated User */}
           {user ? (
-            <>
-              <span className="text-slate-500">Hi, {user.full_name}</span>
+            <div className="ml-auto flex flex-wrap items-center gap-3 border-l border-slate-200 pl-3 sm:ml-2">
+
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-bold uppercase text-blue-700">
+                  {user.full_name?.charAt(0) || 'U'}
+                </div>
+
+                <div className="hidden sm:block">
+                  <p className="max-w-36 truncate text-sm font-semibold text-slate-800">
+                    {user.full_name}
+                  </p>
+                  <p className="text-xs capitalize text-slate-500">
+                    {user.role}
+                  </p>
+                </div>
+              </div>
+
               <button
+                type="button"
                 onClick={handleLogout}
-                className="rounded bg-slate-100 px-3 py-1 hover:bg-slate-200"
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
               >
                 Logout
               </button>
-            </>
+            </div>
           ) : (
-            <>
-              <NavLink to="/login" className="hover:text-brand-600">
+            <div className="ml-auto flex items-center gap-2">
+              <NavLink
+                to="/login"
+                className={({ isActive }) =>
+                  `rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+                    isActive
+                      ? 'bg-blue-50 text-blue-700'
+                      : 'text-slate-700 hover:bg-slate-100 hover:text-blue-700'
+                  }`
+                }
+              >
                 Login
               </NavLink>
+
               <NavLink
                 to="/signup"
-                className="rounded bg-brand-600 px-3 py-1 text-white hover:bg-brand-700"
+                className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-blue-800 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               >
-                Sign up
+                Get Started
               </NavLink>
-            </>
+            </div>
           )}
         </div>
       </nav>

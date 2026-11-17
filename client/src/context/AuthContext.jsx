@@ -18,7 +18,6 @@ export function AuthProvider({ children }) {
       setUser(user);
     } catch {
       setUser(null);
-      localStorage.removeItem('token');
     } finally {
       setLoading(false);
     }
@@ -30,25 +29,18 @@ export function AuthProvider({ children }) {
 
   const login = async (creds) => {
     const data = await loginApi(creds);
-    if (data.token) localStorage.setItem('token', data.token);
     setUser(data.user);
     return data.user;
   };
 
   const signup = async (payload) => {
     const data = await signupApi(payload);
-    if (data.token) localStorage.setItem('token', data.token);
     setUser(data.user);
     return data.user;
   };
 
   const logout = async () => {
-    try {
-      await logoutApi();
-    } catch {
-      /* ignore */
-    }
-    localStorage.removeItem('token');
+    await logoutApi();
     setUser(null);
   };
 

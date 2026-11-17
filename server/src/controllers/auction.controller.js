@@ -4,16 +4,16 @@ const { asyncHandler } = require('../middleware/errorHandler');
 
 const list = asyncHandler(async (req, res) => {
   const {
-    page = 1,
-    limit = 12,
+    page,
+    limit,
     search,
     category,
     sort,
-  } = req.query;
+  } = req.validatedQuery;
 
   const result = await auctionService.listAuctions({
-    page: Number(page),
-    limit: Math.min(Number(limit), 48),
+    page,
+    limit,
     search,
     categoryId: category || undefined,
     status: 'active',
@@ -24,7 +24,7 @@ const list = asyncHandler(async (req, res) => {
 });
 
 const detail = asyncHandler(async (req, res) => {
-  const auction = await auctionService.getAuction(req.params.id);
+  const auction = await auctionService.getAuction(req.validatedParams.id);
   res.json({ auction });
 });
 
