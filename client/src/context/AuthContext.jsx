@@ -5,6 +5,7 @@ import {
   meApi,
   signupApi,
 } from '../api/auth.api';
+import { clearAuthToken, saveAuthToken } from '../utils/authToken';
 
 const AuthContext = createContext(null);
 
@@ -16,7 +17,8 @@ export function AuthProvider({ children }) {
     try {
       const { user } = await meApi();
       setUser(user);
-    } catch {
+    } catch (error) {
+      if (error.status === 401) clearAuthToken();
       setUser(null);
     } finally {
       setLoading(false);
@@ -29,19 +31,25 @@ export function AuthProvider({ children }) {
 
   const login = async (creds) => {
     const data = await loginApi(creds);
+    saveAuthToken(data.token);
     setUser(data.user);
     return data.user;
   };
 
   const signup = async (payload) => {
     const data = await signupApi(payload);
+    saveAuthToken(data.token);
     setUser(data.user);
     return data.user;
   };
 
   const logout = async () => {
-    await logoutApi();
-    setUser(null);
+    try {
+      await logoutApi();
+    } finally {
+      clearAuthToken();
+      setUser(null);
+    }
   };
 
   return (

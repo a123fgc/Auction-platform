@@ -21,19 +21,22 @@ const CLEAR_COOKIE_OPTS = {
 const signup = asyncHandler(async (req, res) => {
   const { user, token } = await authService.signup(req.body);
   res.cookie(env.COOKIE_NAME, token, COOKIE_OPTS);
-  res.status(201).json({ user });
+  res.status(201).json({ user, token });
 });
 
 const login = asyncHandler(async (req, res) => {
   const { user, token } = await authService.login(req.body);
   res.cookie(env.COOKIE_NAME, token, COOKIE_OPTS);
-  res.json({ user });
+  res.json({ user, token });
 });
 
 const logout = asyncHandler(async (req, res) => {
-  await authService.logout(req.user);
-  disconnectUserSockets(req.user.id);
-  res.clearCookie(env.COOKIE_NAME, CLEAR_COOKIE_OPTS);
+  try {
+    await authService.logout(req.user);
+    disconnectUserSockets(req.user.id);
+  } finally {
+    res.clearCookie(env.COOKIE_NAME, CLEAR_COOKIE_OPTS);
+  }
   res.json({ message: 'Logged out' });
 });
 

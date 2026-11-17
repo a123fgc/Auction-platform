@@ -126,7 +126,7 @@ class FakeSocketServer extends EventEmitter {
 
 class FakeSocket {
   constructor(cookie = '') {
-    this.handshake = { headers: { cookie } };
+    this.handshake = { headers: { cookie }, auth: {} };
     this.data = {};
     this.rooms = new Set();
     this.handlers = new Map();
@@ -184,11 +184,12 @@ function tokenFor(account) {
   return signToken({ sub: account.id, role: account.role, sv: account.session_version });
 }
 
-async function callApi(route, { method = 'GET', body, cookie, origin = ORIGIN } = {}) {
+async function callApi(route, { method = 'GET', body, cookie, bearer, origin = ORIGIN } = {}) {
   const headers = {};
   if (body !== undefined) headers['content-type'] = 'application/json';
   if (origin !== undefined) headers.origin = origin;
   if (cookie) headers.cookie = cookie;
+  if (bearer) headers.authorization = `Bearer ${bearer}`;
   return fetch(`${baseUrl}${route}`, {
     method,
     headers,
@@ -204,21 +205,26 @@ async function loginCookie(account) {
   assert.equal(response.status, 200);
   const setCookie = response.headers.get('set-cookie');
   assert.ok(setCookie, 'login should issue an authentication cookie');
+  const body = await response.json();
   return {
     response,
+    body,
+    token: body.token,
     cookie: setCookie.split(';', 1)[0],
   };
 }
 
-async function connectSocket(cookie) {
-  return FakeSocketServer.instance.connect(new FakeSocket(cookie || ''));
+async function connectSocket(cookie, token) {
+  const socket = new FakeSocket(cookie || '');
+  if (token) socket.handshake.auth.token = token;
+  return FakeSocketServer.instance.connect(socket);
 }
 
 function emitSocketEvent(socket, event, ...args) {
   return new Promise((resolve) => socket.handlers.get(event)(...args, resolve));
 }
 
-test('signup/login issue HTTP-only cookies; /me works; logout revokes the cookie session', async (t) => {
+test('signup/login issue fresh tokens; bearer/cookie auth works; logout clears and revokes the session', async (t) => {
   const signupEmail = `new-${Date.now()}@auction.test`;
   const signup = await callApi('/api/auth/signup', {
     method: 'POST',
@@ -227,28 +233,35 @@ test('signup/login issue HTTP-only cookies; /me works; logout revokes the cookie
   assert.equal(signup.status, 201);
   const signupBody = await signup.json();
   assert.equal(signupBody.user.email, signupEmail);
-  assert.equal('token' in signupBody, false, 'JWT must not appear in response JSON');
+  assert.equal(typeof signupBody.token, 'string', 'signup returns a JWT for browser storage');
   const signupSetCookie = signup.headers.get('set-cookie');
   assert.match(signupSetCookie, /HttpOnly/i);
   assert.match(signupSetCookie, /SameSite=Lax/i);
 
   const buyer = accounts.get(IDS.buyer);
-  const { response: login, cookie } = await loginCookie(buyer);
-  const loginBody = await login.json();
-  assert.equal('token' in loginBody, false);
+  const { response: login, cookie, token } = await loginCookie(buyer);
+  assert.equal(typeof token, 'string');
   assert.match(login.headers.get('set-cookie'), /HttpOnly/i);
 
   const me = await callApi('/api/auth/me', { cookie });
   assert.equal(me.status, 200);
   assert.equal((await me.json()).user.id, IDS.buyer);
 
-  const liveSocket = await connectSocket(cookie);
-  const logout = await callApi('/api/auth/logout', { method: 'POST', cookie });
+  const bearerMe = await callApi('/api/auth/me', { bearer: token });
+  assert.equal(bearerMe.status, 200, 'Bearer token from localStorage must authenticate API requests');
+
+  const liveSocket = await connectSocket(null, token);
+  const logout = await callApi('/api/auth/logout', { method: 'POST', cookie, bearer: token });
   assert.equal(logout.status, 200);
   assert.equal(liveSocket.disconnected, true, 'logout should disconnect the authenticated socket');
   assert.match(logout.headers.get('set-cookie'), /Expires=Thu, 01 Jan 1970/i);
   const staleSession = await callApi('/api/auth/me', { cookie });
   assert.equal(staleSession.status, 401, 'logout must invalidate the old JWT session');
+  const staleBearer = await callApi('/api/auth/me', { bearer: token });
+  assert.equal(staleBearer.status, 401, 'logout must invalidate a copied bearer token too');
+
+  const secondLogin = await loginCookie(buyer);
+  assert.notEqual(secondLogin.token, token, 'a new login must generate a fresh JWT');
 
   t.diagnostic('Signup, login, cookie hydration, and server-side session-version invalidation passed.');
 });
@@ -415,12 +428,12 @@ test('Socket.IO enforces origin, cookie auth, room ID/existence checks, and susp
   assert.deepEqual(valid, { ok: true });
   assert.equal(anonymous.rooms.has(`auction:${IDS.auction}`), true);
 
-  const buyerCookie = (await loginCookie(accounts.get(IDS.buyer))).cookie;
-  const authenticated = await connectSocket(buyerCookie);
+  const buyerToken = (await loginCookie(accounts.get(IDS.buyer))).token;
+  const authenticated = await connectSocket(null, buyerToken);
   assert.equal(authenticated.rooms.has(`user:${IDS.buyer}`), true);
 
-  const suspendedCookie = `${process.env.COOKIE_NAME}=${encodeURIComponent(tokenFor(accounts.get('suspended-buyer')))}`;
-  await assert.rejects(connectSocket(suspendedCookie), /Account suspended/);
+  const suspendedToken = tokenFor(accounts.get('suspended-buyer'));
+  await assert.rejects(connectSocket(null, suspendedToken), /Account suspended/);
 });
 
 test('database migration keeps atomic bidding/closing in SECURITY DEFINER routines', () => {
@@ -429,4 +442,26 @@ test('database migration keeps atomic bidding/closing in SECURITY DEFINER routin
   assert.match(migration, /set search_path = pg_catalog, public/i);
   assert.match(migration, /revoke all on function public\.place_bid\(uuid, uuid, numeric\) from public, anon, authenticated/i);
   assert.match(migration, /grant execute on function public\.place_bid\(uuid, uuid, numeric\) to service_role/i);
+});
+
+test('frontend auth token storage replaces prior value and removes it on logout', async () => {
+  const values = new Map();
+  global.window = {
+    localStorage: {
+      getItem: (key) => values.get(key) || null,
+      setItem: (key, value) => values.set(key, value),
+      removeItem: (key) => values.delete(key),
+    },
+  };
+  try {
+    const { clearAuthToken, getAuthToken, saveAuthToken } = await import('../../client/src/utils/authToken.js');
+    saveAuthToken('old-jwt');
+    assert.equal(getAuthToken(), 'old-jwt');
+    saveAuthToken('new-jwt');
+    assert.equal(getAuthToken(), 'new-jwt', 'login replaces the prior stored token');
+    clearAuthToken();
+    assert.equal(getAuthToken(), null, 'logout removes the stored token');
+  } finally {
+    delete global.window;
+  }
 });

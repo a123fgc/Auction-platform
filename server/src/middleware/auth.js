@@ -5,11 +5,11 @@ const env = require('../config/env');
 const { asyncHandler } = require('./errorHandler');
 
 const auth = asyncHandler(async (req, res, next) => {
-  let token = null;
-
-  if (req.cookies && req.cookies[env.COOKIE_NAME]) {
-    token = req.cookies[env.COOKIE_NAME];
-  }
+  const authorization = req.get('authorization') || '';
+  const bearerMatch = authorization.match(/^Bearer\s+(.+)$/i);
+  const token = bearerMatch?.[1]
+    || (req.cookies && req.cookies[env.COOKIE_NAME])
+    || null;
 
   if (!token) throw ApiError.unauthorized('Not authenticated');
 

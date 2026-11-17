@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { useAuth } from "./AuthContext";
+import { getAuthToken } from "../utils/authToken";
 
 const SocketContext = createContext(null);
 
@@ -16,6 +17,7 @@ export function SocketProvider({ children }) {
 
     const s = io(import.meta.env.VITE_SOCKET_URL || "http://localhost:5000", {
       withCredentials: true,
+      auth: { token: getAuthToken() },
       // Keep Socket.IO's polling transport and WebSocket upgrade fallback.
     });
 
