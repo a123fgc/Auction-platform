@@ -11,6 +11,7 @@ const auctionRoutes = require('./routes/auction.routes');
 const sellerRoutes = require('./routes/seller.routes');
 const bidRoutes = require('./routes/bid.routes');
 const adminRoutes = require('./routes/admin.routes');
+const profileRoutes = require('./routes/profile.routes');
 
 
 const app = express();
@@ -43,8 +44,9 @@ app.use('/api/auctions', auctionRoutes);
 app.use('/api/seller', sellerRoutes);
 app.use('/api', bidRoutes); 
 app.use('/api/admin', adminRoutes);
+app.use('/api', profileRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
-
+ 
 module.exports = app;

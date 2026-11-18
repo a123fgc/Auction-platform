@@ -1,11 +1,14 @@
-const supabase = require('../../config/supabase');
-const { quoteFilterValue, escapeLikePattern } = require('../../utils/postgrestSearch');
+const supabase = require("../../config/supabase");
+const {
+  quoteFilterValue,
+  escapeLikePattern,
+} = require("../../utils/postgrestSearch");
 
 async function findByEmail(email) {
   const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .ilike('email', email)
+    .from("users")
+    .select("*")
+    .ilike("email", email)
     .maybeSingle();
   if (error) throw error;
   return data;
@@ -13,19 +16,21 @@ async function findByEmail(email) {
 
 async function findById(id) {
   const { data, error } = await supabase
-    .from('users')
-    .select('id,email,full_name,role,is_suspended,session_version,created_at')
-    .eq('id', id)
+    .from("users")
+    .select(
+      "id,email,full_name,role,is_suspended,session_version,avatar_url,bio,phone,location,website,created_at",
+    )
+    .eq("id", id)
     .maybeSingle();
   if (error) throw error;
   return data;
 }
 
-async function create({ email, password_hash, full_name, role = 'buyer' }) {
+async function create({ email, password_hash, full_name, role = "buyer" }) {
   const { data, error } = await supabase
-    .from('users')
+    .from("users")
     .insert({ email, password_hash, full_name, role })
-    .select('id,email,full_name,role,session_version,created_at')
+    .select("id,email,full_name,role,session_version,created_at")
     .single();
   if (error) throw error;
   return data;
@@ -33,10 +38,12 @@ async function create({ email, password_hash, full_name, role = 'buyer' }) {
 
 async function listAll({ page = 1, limit = 20, role, search }) {
   let query = supabase
-    .from('users')
-    .select('id,email,full_name,role,is_suspended,created_at', { count: 'exact' });
+    .from("users")
+    .select("id,email,full_name,role,is_suspended,created_at", {
+      count: "exact",
+    });
 
-  if (role) query = query.eq('role', role);
+  if (role) query = query.eq("role", role);
   if (search) {
     const pattern = quoteFilterValue(`%${escapeLikePattern(search)}%`);
     query = query.or(`email.ilike.${pattern},full_name.ilike.${pattern}`);
@@ -44,7 +51,7 @@ async function listAll({ page = 1, limit = 20, role, search }) {
 
   const from = (page - 1) * limit;
   const { data, error, count } = await query
-    .order('created_at', { ascending: false })
+    .order("created_at", { ascending: false })
     .range(from, from + limit - 1);
 
   if (error) throw error;
@@ -53,10 +60,10 @@ async function listAll({ page = 1, limit = 20, role, search }) {
 
 async function setSuspended(id, is_suspended) {
   const { data, error } = await supabase
-    .from('users')
+    .from("users")
     .update({ is_suspended })
-    .eq('id', id)
-    .select('id,email,full_name,role,is_suspended')
+    .eq("id", id)
+    .select("id,email,full_name,role,is_suspended")
     .single();
   if (error) throw error;
   return data;
@@ -64,10 +71,59 @@ async function setSuspended(id, is_suspended) {
 
 async function revokeSessions(id, currentVersion) {
   const { error } = await supabase
-    .from('users')
+    .from("users")
     .update({ session_version: currentVersion + 1 })
-    .eq('id', id);
+    .eq("id", id);
   if (error) throw error;
 }
+async function updateProfile(id, patch) {
+  const { data, error } = await supabase
+    .from("users")
+    .update(patch)
+    .eq("id", id)
+    .select(
+      "id,email,full_name,role,is_suspended,avatar_url,bio,phone,location,website,created_at",
+    )
+    .single();
+  if (error) throw error;
+  return data;
+}
 
-module.exports = { findByEmail, findById, create, listAll, setSuspended, revokeSessions };
+async function updatePassword(id, password_hash) {
+  const { data, error } = await supabase
+    .from("users")
+    .update({ password_hash })
+    .eq("id", id)
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+async function getPublicProfile(id) {
+  const { data, error } = await supabase
+    .from("users")
+    .select("id,full_name,role,avatar_url,bio,location,website,created_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+async function findByIdWithPassword(id) {
+  const { data, error } = await supabase
+    .from('users').select('id,password_hash').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+module.exports = {
+  findByEmail,
+  findById,
+  create,
+  listAll,
+  setSuspended,
+  revokeSessions,
+  updateProfile,
+  updatePassword,
+  getPublicProfile,
+  findByIdWithPassword,
+};

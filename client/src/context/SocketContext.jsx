@@ -19,7 +19,7 @@ export function SocketProvider({ children }) {
       withCredentials: true,
       auth: { token: getAuthToken() },
       // Keep Socket.IO's polling transport and WebSocket upgrade fallback.
-    });
+    }); 
 
     const onConnectError = (error) => {
       if (error.message === 'Account suspended') s.disconnect();
