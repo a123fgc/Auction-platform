@@ -1,11 +1,12 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import {
-  loginApi,
-  logoutApi,
-  meApi,
-  signupApi,
-} from '../api/auth.api';
-import { clearAuthToken, saveAuthToken } from '../utils/authToken';
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
+import { loginApi, logoutApi, meApi, signupApi } from "../api/auth.api";
+import { clearAuthToken, saveAuthToken } from "../utils/authToken";
 
 const AuthContext = createContext(null);
 
@@ -15,11 +16,11 @@ export function AuthProvider({ children }) {
 
   const hydrate = useCallback(async () => {
     try {
-      const { user } = await meApi();
+      const { user } = await meApi(); // GET /api/auth/me
       setUser(user);
-    } catch (error) {
-      if (error.status === 401) clearAuthToken();
+    } catch {
       setUser(null);
+      localStorage.removeItem("token");
     } finally {
       setLoading(false);
     }
@@ -64,6 +65,6 @@ export function AuthProvider({ children }) {
 // eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
+  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
   return ctx;
 }
