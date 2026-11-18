@@ -28,6 +28,7 @@ async function signup({ email, password, full_name, role }) {
       email: user.email,
       full_name: user.full_name,
       role: user.role,
+      avatar_url: user.avatar_url || null,
     },
     token,
   };
@@ -48,6 +49,7 @@ async function login({ email, password }) {
       email: user.email,
       full_name: user.full_name,
       role: user.role,
+      avatar_url: user.avatar_url || null,
     },
     token,
   };

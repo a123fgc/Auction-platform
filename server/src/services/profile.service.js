@@ -17,7 +17,7 @@ async function updateProfile(userId, payload, files = []) {
 
   // If an avatar file was uploaded, push to Cloudinary and store URL
   if (files.length > 0) {
-    const urls = await uploadFiles(files);
+    const urls = await uploadFiles(files, 'auction-platform/profiles');
     patch.avatar_url = urls[0];
   }
 
