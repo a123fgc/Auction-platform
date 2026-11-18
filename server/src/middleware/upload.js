@@ -78,7 +78,7 @@ function uploadArray(req, res, next) {
   });
 }
 
-function uploadBufferToCloudinary(buffer) {
+function uploadBufferToCloudinary(buffer, folder) {
   if (!process.env.CLOUDINARY_CLOUD_NAME) {
     return Promise.reject(
       ApiError.badRequest('Image upload not configured (Cloudinary missing)')
@@ -88,7 +88,7 @@ function uploadBufferToCloudinary(buffer) {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder: 'auction-platform/auctions',
+        folder,
         resource_type: 'image',
         allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
       },
@@ -104,8 +104,8 @@ function uploadBufferToCloudinary(buffer) {
   });
 }
 
-async function uploadFiles(files = []) {
-  return Promise.all(files.map((f) => uploadBufferToCloudinary(f.buffer)));
+async function uploadFiles(files = [], folder = 'auction-platform/auctions') {
+  return Promise.all(files.map((f) => uploadBufferToCloudinary(f.buffer, folder)));
 }
 
 module.exports = {
