@@ -51,19 +51,30 @@ export default function Login() {
             className="w-full rounded border border-slate-300 px-3 py-2 focus:border-brand-500 focus:outline-none"
           />
         </div>
+
+        {/* ─── YAHAN CHANGE HUA HAI ─── */}
         <div>
-          <label className="mb-1 block text-sm font-medium">Password</label>
+          <div className="mb-1 flex items-center justify-between">
+            <label className="block text-sm font-medium">Password</label>
+            <Link
+              to="/forgot-password"
+              className="text-xs font-medium text-blue-700 hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
           <PasswordInput
-          placeholder="Enter your password"
+            placeholder="Enter your password"
             name="password"
             value={form.password}
             onChange={onChange}
-          />          
+          />
         </div>
+        {/* ─── YAHAN TAK ─── */}
+
         <button
           type="submit"
           disabled={loading}
-          
           className="w-full rounded bg-brand-600 py-2 font-medium text-white hover:bg-brand-700 disabled:opacity-60"
         >
           {loading ? 'Logging in...' : 'Login'}

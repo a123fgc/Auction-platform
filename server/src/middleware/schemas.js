@@ -162,6 +162,17 @@ const passwordChangeSchema = z.object({
     .min(6, "New password must be at least 6 chars")
     .max(72, "Password too long"),
 });
+const forgotPasswordSchema = z.object({
+  email: z.string().email('Invalid email'),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(16, 'Invalid token'),
+  new_password: z
+    .string()
+    .min(6, 'Password must be at least 6 chars')
+    .max(72, 'Password too long'),
+});
 // ─── Exports ─────────────────────────────────────────────────────────
 module.exports = {
   signupSchema,
@@ -179,4 +190,6 @@ module.exports = {
   auctionIdParamSchema,
   profileUpdateSchema,
   passwordChangeSchema,
+  forgotPasswordSchema,   // ← new
+  resetPasswordSchema,
 };

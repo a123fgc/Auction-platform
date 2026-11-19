@@ -13,6 +13,8 @@ import AdminUsers from "../pages/admin/Users";
 import AdminAuctions from "../pages/admin/Auctions";
 import ProtectedRoute from "../components/guards/ProtectedRoute";
 import Settings from "../pages/settings/Settings";
+import ForgotPassword from "../pages/public/ForgotPassword";
+import ResetPassword from "../pages/public/ResetPassword";
 
 export default function AppRoutes() {
   return (
@@ -43,6 +45,8 @@ export default function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route path="/settings" element={<Settings />} />
       </Route>
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
     </Routes>
   );
 }
