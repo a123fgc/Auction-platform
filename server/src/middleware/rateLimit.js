@@ -24,5 +24,22 @@ const bidLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many bids. Try again shortly.' },
 });
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many reset requests. Try again later.' },
+});
 
-module.exports = { loginLimiter, signupLimiter, bidLimiter };
+const resetPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Try again later.' },
+});
+
+module.exports = { loginLimiter, signupLimiter, bidLimiter , forgotPasswordLimiter, 
+  resetPasswordLimiter,   
+};
