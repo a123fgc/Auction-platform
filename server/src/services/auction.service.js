@@ -54,10 +54,16 @@ async function updateAuction(user, auctionId, patch) {
     throw ApiError.badRequest('Only active auctions can be edited');
   }
   if (auction.current_price > auction.starting_price) {
-    // Bids already placed — restrict edits to description/images only
-    delete patch.starting_price;
-    delete patch.min_increment;
-    delete patch.ends_at;
+    const immutableFields = [
+      'starting_price',
+      'min_increment',
+      'ends_at',
+    ].filter((field) => Object.prototype.hasOwnProperty.call(patch, field));
+    if (immutableFields.length > 0) {
+      throw ApiError.badRequest(
+        `Cannot change ${immutableFields.join(', ')} after bids have been placed`
+      );
+    }
   }
 
   if (patch.category_id) {

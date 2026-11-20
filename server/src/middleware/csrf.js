@@ -6,6 +6,7 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 // Paths jahan CSRF check nahi chahiye (server-to-server)
 const CSRF_EXEMPT_PATHS = [
   '/api/webhooks',  // Supabase webhooks
+  '/api/jobs',      // Vercel cron (authenticated by CRON_SECRET)
 ];
 
 function csrfProtection(req, res, next) {

@@ -71,7 +71,7 @@ export default function Signup() {
             name="password"
             value={form.password}
             onChange={onChange}
-            minLength={6}
+            minLength={12}
           />
         </div>
         <div>

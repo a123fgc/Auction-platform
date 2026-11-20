@@ -6,7 +6,7 @@ import {
   useCallback,
 } from "react";
 import { loginApi, logoutApi, meApi, signupApi } from "../api/auth.api";
-import { clearAuthToken, saveAuthToken } from "../utils/authToken";
+import { clearAuthToken } from "../utils/authToken";
 
 const AuthContext = createContext(null);
 
@@ -20,7 +20,7 @@ export function AuthProvider({ children }) {
       setUser(user);
     } catch {
       setUser(null);
-      localStorage.removeItem("token");
+      clearAuthToken();
     } finally {
       setLoading(false);
     }
@@ -32,14 +32,14 @@ export function AuthProvider({ children }) {
 
   const login = async (creds) => {
     const data = await loginApi(creds);
-    saveAuthToken(data.token);
+    clearAuthToken();
     setUser(data.user);
     return data.user;
   };
 
   const signup = async (payload) => {
     const data = await signupApi(payload);
-    saveAuthToken(data.token);
+    clearAuthToken();
     setUser(data.user);
     return data.user;
   };

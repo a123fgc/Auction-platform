@@ -25,9 +25,6 @@ async function placeBid(user, auctionId, amount) {
     );
   }
 
-  // Snapshot previous highest bidder BEFORE insert (who to notify)
-  const prevTop = await bidRepo.highestBidder(auctionId);
-
   let bid;
   try {
     bid = await bidRepo.placeBidRpc({
@@ -45,7 +42,7 @@ async function placeBid(user, auctionId, amount) {
   // Fetch fresh auction (ends_at may have been extended by anti-sniping)
   const freshAuction = await auctionRepo.findById(auctionId);
 
-  return { bid, auction: freshAuction, previousBidderId: prevTop?.bidder_id || null };
+  return { bid, auction: freshAuction };
 }
 
 async function listAuctionBids(auctionId, query = {}) {

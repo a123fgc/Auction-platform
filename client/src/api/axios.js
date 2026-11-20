@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { clearAuthToken, getAuthToken } from '../utils/authToken';
+import { clearAuthToken } from '../utils/authToken';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
@@ -7,11 +7,7 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-api.interceptors.request.use((config) => {
-  const token = getAuthToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+api.interceptors.request.use((config) => config);
 
 api.interceptors.response.use(
   (res) => res,

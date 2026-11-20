@@ -1,5 +1,6 @@
 const profileService = require('../services/profile.service');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { disconnectUserSockets } = require('../sockets');
 
 const updateMe = asyncHandler(async (req, res) => {
   const files = req.files || [];
@@ -18,6 +19,7 @@ const changePassword = asyncHandler(async (req, res) => {
     current_password,
     new_password
   );
+  disconnectUserSockets(req.user.id);
   res.json(result);
 });
 

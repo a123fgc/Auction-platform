@@ -30,6 +30,12 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
   process.exit(1);
 }
 
+const trustProxy = Number(process.env.TRUST_PROXY ?? (process.env.NODE_ENV === 'production' ? 1 : 0));
+if (!Number.isInteger(trustProxy) || trustProxy < 0 || trustProxy > 10) {
+  console.error('[env] TRUST_PROXY must be an integer from 0 to 10');
+  process.exit(1);
+}
+
 module.exports = {
   PORT: port,
   NODE_ENV: process.env.NODE_ENV || 'development',
@@ -41,6 +47,7 @@ module.exports = {
   JWT_SECRET: process.env.JWT_SECRET,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   COOKIE_NAME: process.env.COOKIE_NAME || 'auction_token',
+  TRUST_PROXY: trustProxy,
   CLOUDINARY: {
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,

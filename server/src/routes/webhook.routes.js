@@ -1,4 +1,5 @@
 const express = require("express");
+const crypto = require("node:crypto");
 const router = express.Router();
 router.use((req, res, next) => {
   // CORS headers skip karein webhook ke liye
@@ -8,7 +9,17 @@ router.use((req, res, next) => {
 router.post("/supabase", (req, res) => {
   // 1. Verify shared secret (security)
   const secret = req.headers["x-webhook-secret"];
-  if (secret !== process.env.SUPABASE_WEBHOOK_SECRET) {
+  const configuredSecret = process.env.SUPABASE_WEBHOOK_SECRET;
+  const secretValid =
+    typeof secret === "string" &&
+    typeof configuredSecret === "string" &&
+    configuredSecret.length > 0 &&
+    secret.length === configuredSecret.length &&
+    crypto.timingSafeEqual(
+      Buffer.from(secret, "utf8"),
+      Buffer.from(configuredSecret, "utf8")
+    );
+  if (!secretValid) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 

@@ -66,19 +66,23 @@ async function verifyToken(rawToken) {
 }
 
 async function resetPassword(rawToken, newPassword) {
-  const v = await verifyToken(rawToken);
-  if (!v.valid) {
-    throw ApiError.badRequest(v.reason);
+  if (!rawToken || typeof rawToken !== 'string' || rawToken.length < 16) {
+    throw ApiError.badRequest('Invalid token');
   }
-  if (!newPassword || newPassword.length < 6) {
-    throw ApiError.badRequest('Password must be at least 6 chars');
+  if (!newPassword || newPassword.length < 12) {
+    throw ApiError.badRequest('Password must be at least 12 chars');
   }
 
   const password_hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-  await userRepo.updatePassword(v.userId, password_hash);
-  await prtRepo.markUsed(v.tokenId);
+  const consumed = await prtRepo.consume({
+    tokenHash: hashToken(rawToken),
+    passwordHash: password_hash,
+  });
+  if (!consumed) {
+    throw ApiError.badRequest('Invalid, expired, or already used token');
+  }
 
-  return { message: 'Password updated successfully' };
+  return { message: 'Password updated successfully', userId: consumed.user_id };
 }
 
 module.exports = { requestReset, verifyToken, resetPassword };

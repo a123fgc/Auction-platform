@@ -13,6 +13,7 @@ async function tick() {
     try {
       const processed = await emailService.processBatch();
       if (processed > 0) console.log(`[emailOutbox.job] processed ${processed} message(s)`);
+      return processed;
     } catch (error) {
       console.error('[emailOutbox.job] batch failed:', error.message);
     } finally {

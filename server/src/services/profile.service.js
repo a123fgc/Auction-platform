@@ -51,7 +51,7 @@ async function changePassword(userId, currentPassword, newPassword) {
   }
 
   const hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-  await userRepo.updatePassword(userId, hash);
+  await userRepo.updatePasswordAndRevoke(userId, hash);
   return { message: 'Password updated' };
 }
 

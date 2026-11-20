@@ -12,7 +12,7 @@ async function tick() {
   running = true;
   currentTick = (async () => {
     try {
-      await closeExpiredAuctions();
+      return await closeExpiredAuctions();
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('[closeAuctions.job] error:', err.message);
@@ -41,4 +41,4 @@ async function stop() {
   if (currentTick) await currentTick;
 }
 
-module.exports = { start, stop };
+module.exports = { start, stop, tick };

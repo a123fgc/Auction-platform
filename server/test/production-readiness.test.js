@@ -22,7 +22,12 @@ const bidRepo = require('../src/db/repositories/bid.repo');
 const statsService = require('../src/services/stats.service');
 const supabase = require('../src/config/supabase');
 const { signToken } = require('../src/utils/jwt');
-const { auctionListQuerySchema } = require('../src/middleware/schemas');
+const {
+  auctionListQuerySchema,
+  signupSchema,
+  passwordChangeSchema,
+  resetPasswordSchema,
+} = require('../src/middleware/schemas');
 const { quoteFilterValue, escapeLikePattern } = require('../src/utils/postgrestSearch');
 
 const IDS = {
@@ -70,6 +75,12 @@ userRepo.create = async (payload) => {
 userRepo.revokeSessions = async (id, currentVersion) => {
   const account = accounts.get(id);
   account.session_version = currentVersion + 1;
+};
+userRepo.updatePasswordAndRevoke = async (id, passwordHash) => {
+  const account = accounts.get(id);
+  account.password_hash = passwordHash;
+  account.session_version += 1;
+  return { id, session_version: account.session_version };
 };
 userRepo.listAll = async () => ({ data: [], total: 0 });
 userRepo.setSuspended = async (id, suspended) => {
@@ -184,12 +195,13 @@ function tokenFor(account) {
   return signToken({ sub: account.id, role: account.role, sv: account.session_version });
 }
 
-async function callApi(route, { method = 'GET', body, cookie, bearer, origin = ORIGIN } = {}) {
+async function callApi(route, { method = 'GET', body, cookie, bearer, origin = ORIGIN, webhookSecret } = {}) {
   const headers = {};
   if (body !== undefined) headers['content-type'] = 'application/json';
   if (origin !== undefined) headers.origin = origin;
   if (cookie) headers.cookie = cookie;
   if (bearer) headers.authorization = `Bearer ${bearer}`;
+  if (webhookSecret) headers['x-webhook-secret'] = webhookSecret;
   return fetch(`${baseUrl}${route}`, {
     method,
     headers,
@@ -223,6 +235,53 @@ async function connectSocket(cookie, token) {
 function emitSocketEvent(socket, event, ...args) {
   return new Promise((resolve) => socket.handlers.get(event)(...args, resolve));
 }
+
+test('authenticated password change revokes the old cookie and bearer sessions', async () => {
+  const account = accounts.get(IDS.buyer);
+  const login = await loginCookie(account);
+  const originalPasswordHash = account.password_hash;
+  const originalSessionVersion = account.session_version;
+
+  const originalFrom = supabase.from;
+  supabase.from = (table) => {
+    if (table !== 'users') throw new Error(`Unexpected table: ${table}`);
+    let selectedId = null;
+    return {
+      select() { return this; },
+      eq(_column, id) { selectedId = id; return this; },
+      maybeSingle: async () => ({
+        data: {
+          id: selectedId,
+          password_hash: accounts.get(selectedId).password_hash,
+        },
+        error: null,
+      }),
+    };
+  };
+
+  try {
+    const response = await callApi('/api/me/password', {
+      method: 'PATCH',
+      cookie: login.cookie,
+      bearer: login.token,
+      body: {
+        current_password: 'correct horse battery staple',
+        new_password: 'new-long-password',
+      },
+    });
+    assert.equal(response.status, 200);
+  } finally {
+    supabase.from = originalFrom;
+  }
+
+  const staleCookie = await callApi('/api/auth/me', { cookie: login.cookie });
+  assert.equal(staleCookie.status, 401);
+  const staleBearer = await callApi('/api/auth/me', { bearer: login.token });
+  assert.equal(staleBearer.status, 401);
+
+  account.password_hash = originalPasswordHash;
+  account.session_version = originalSessionVersion;
+});
 
 test('signup/login issue fresh tokens; bearer/cookie auth works; logout clears and revokes the session', async (t) => {
   const signupEmail = `new-${Date.now()}@auction.test`;
@@ -264,6 +323,73 @@ test('signup/login issue fresh tokens; bearer/cookie auth works; logout clears a
   assert.notEqual(secondLogin.token, token, 'a new login must generate a fresh JWT');
 
   t.diagnostic('Signup, login, cookie hydration, and server-side session-version invalidation passed.');
+});
+
+test('webhook secret validation fails closed', async () => {
+  delete process.env.SUPABASE_WEBHOOK_SECRET;
+  const missingConfiguration = await callApi('/api/webhooks/supabase', {
+    method: 'POST',
+    origin: 'https://attacker.example',
+    body: { type: 'UPDATE', table: 'auctions', record: { id: IDS.auction } },
+  });
+  assert.equal(missingConfiguration.status, 401);
+
+  process.env.SUPABASE_WEBHOOK_SECRET = 'test-webhook-secret';
+  const missingHeader = await callApi('/api/webhooks/supabase', {
+    method: 'POST',
+    origin: 'https://attacker.example',
+    body: { type: 'UPDATE', table: 'auctions', record: { id: IDS.auction } },
+  });
+  assert.equal(missingHeader.status, 401);
+
+  const wrongSecret = await callApi('/api/webhooks/supabase', {
+    method: 'POST',
+    origin: 'https://attacker.example',
+    webhookSecret: 'wrong-secret',
+    body: { type: 'UPDATE', table: 'auctions', record: { id: IDS.auction } },
+  });
+  assert.equal(wrongSecret.status, 401);
+
+  const validSecret = await callApi('/api/webhooks/supabase', {
+    method: 'POST',
+    origin: 'https://attacker.example',
+    webhookSecret: 'test-webhook-secret',
+    body: { type: 'UPDATE', table: 'auctions', record: { id: IDS.auction } },
+  });
+  assert.equal(validSecret.status, 200);
+
+  delete process.env.SUPABASE_WEBHOOK_SECRET;
+});
+
+test('password policies require at least 12 characters consistently', () => {
+  assert.equal(signupSchema.safeParse({
+    full_name: 'Test User',
+    email: 'test@example.com',
+    password: 'eleven-char',
+  }).success, false);
+  assert.equal(signupSchema.safeParse({
+    full_name: 'Test User',
+    email: 'test@example.com',
+    password: 'twelve-char-secure',
+  }).success, true);
+  assert.equal(passwordChangeSchema.safeParse({
+    current_password: 'old-password',
+    new_password: 'short',
+  }).success, false);
+  assert.equal(resetPasswordSchema.safeParse({
+    token: 'long-enough-reset-token',
+    new_password: 'twelve-char-secure',
+  }).success, true);
+});
+
+test('invalid password reset tokens return a controlled 400 response', async () => {
+  const missingToken = await callApi('/api/auth/reset-password/verify');
+  assert.equal(missingToken.status, 400);
+  assert.equal((await missingToken.json()).error, 'Invalid token');
+
+  const shortToken = await callApi('/api/auth/reset-password/verify?token=short');
+  assert.equal(shortToken.status, 400);
+  assert.equal((await shortToken.json()).error, 'Invalid token');
 });
 
 test('CSRF Origin validation and role checks block unauthorized mutations', async () => {
@@ -309,6 +435,31 @@ test('admin router is mounted and rejects non-admin users', async () => {
     method: 'PATCH', cookie: adminCookie, body: { suspended: true },
   });
   assert.equal(selfSuspend.status, 403, 'admin cannot suspend their own account');
+});
+
+test('auction edits reject immutable fields after bids are placed', async () => {
+  const originalFindById = auctionRepo.findById;
+  auctionRepo.findById = async () => ({
+    id: IDS.auction,
+    seller_id: IDS.seller,
+    status: 'active',
+    starting_price: 100,
+    current_price: 110,
+  });
+  try {
+    const auctionService = require('../src/services/auction.service');
+    await assert.rejects(
+      auctionService.updateAuction(
+        accounts.get(IDS.seller),
+        IDS.auction,
+        { starting_price: 50, title: 'Updated title' }
+      ),
+      (error) => error.statusCode === 400 &&
+        /Cannot change starting_price/.test(error.message)
+    );
+  } finally {
+    auctionRepo.findById = originalFindById;
+  }
 });
 
 test('pagination is bounded, search is escaped for PostgREST, and sellers cannot set status', async () => {
@@ -436,6 +587,119 @@ test('Socket.IO enforces origin, cookie auth, room ID/existence checks, and susp
   await assert.rejects(connectSocket(null, suspendedToken), /Account suspended/);
 });
 
+test('bid placement does not use stale pre-RPC bidder snapshots', () => {
+  const service = fs.readFileSync(
+    path.join(__dirname, '../src/services/bid.service.js'),
+    'utf8'
+  );
+  assert.doesNotMatch(service, /highestBidder\s*\(/);
+  assert.doesNotMatch(service, /previousBidderId/);
+});
+
+test('baseline security headers are present', async () => {
+  const health = await callApi('/api/health');
+  assert.equal(health.status, 200);
+  assert.ok(health.headers.get('x-content-type-options'));
+  assert.ok(health.headers.get('x-frame-options'));
+  assert.equal(app.get('trust proxy'), 0);
+});
+
+test('cron job routes require a CRON_SECRET and expose serverless jobs', async () => {
+  delete process.env.CRON_SECRET;
+  const missingSecret = await callApi('/api/jobs/close-auctions', {
+    method: 'POST',
+    origin: null,
+  });
+  assert.equal(missingSecret.status, 401);
+
+  process.env.CRON_SECRET = 'test-cron-secret';
+  const closeJob = require('../src/jobs/closeAuctions.job');
+  const emailJob = require('../src/jobs/emailOutbox.job');
+  const originalCloseTick = closeJob.tick;
+  const originalEmailTick = emailJob.tick;
+  closeJob.tick = async () => 2;
+  emailJob.tick = async () => 3;
+
+  try {
+    const wrongSecret = await callApi('/api/jobs/close-auctions', {
+      method: 'POST',
+      origin: null,
+      bearer: 'wrong-secret',
+    });
+    assert.equal(wrongSecret.status, 401);
+
+    const close = await callApi('/api/jobs/close-auctions', {
+      method: 'POST',
+      origin: null,
+      bearer: 'test-cron-secret',
+    });
+    assert.equal(close.status, 200);
+    assert.equal((await close.json()).closed, 2);
+
+    const email = await callApi('/api/jobs/process-email-outbox', {
+      method: 'POST',
+      origin: null,
+      bearer: 'test-cron-secret',
+    });
+    assert.equal(email.status, 200);
+    assert.equal((await email.json()).processed, 3);
+  } finally {
+    closeJob.tick = originalCloseTick;
+    emailJob.tick = originalEmailTick;
+    delete process.env.CRON_SECRET;
+  }
+});
+
+test('anti-sniping migration bounds the extended deadline', () => {
+  const migration = fs.readFileSync(
+    path.join(__dirname, '../src/db/migrations/0014_bounded_anti_sniping.sql'),
+    'utf8'
+  );
+  assert.match(migration, /v_new_end := v_now \+ interval '60 seconds'/i);
+  assert.doesNotMatch(migration, /v_new_end := v_auction\.ends_at \+ interval '60 seconds'/i);
+});
+
+test('admin auction removal migration is transactional and preserves auction history', () => {
+  const migration = fs.readFileSync(
+    path.join(__dirname, '../src/db/migrations/0013_remove_auction_atomic.sql'),
+    'utf8'
+  );
+  assert.match(migration, /v_actor_role <> 'admin'/i);
+  assert.match(migration, /for update/i);
+  assert.match(migration, /cancel_auction_with_notifications/i);
+  assert.match(migration, /set status = 'cancelled'/i);
+  assert.doesNotMatch(migration, /\bdelete\s+from\s+public\.auctions\b/i);
+  assert.match(migration, /revoke all on function public\.remove_auction_atomic\(uuid, uuid\)/i);
+  assert.match(migration, /grant execute on function public\.remove_auction_atomic\(uuid, uuid\)/i);
+});
+
+test('bid deletion migration is ownership-restricted and recalculates auction price', () => {
+  const migration = fs.readFileSync(
+    path.join(__dirname, '../src/db/migrations/0012_delete_bid_atomic.sql'),
+    'utf8'
+  );
+  assert.match(migration, /b\.bidder_id = p_bidder_id/i);
+  assert.match(migration, /for update/i);
+  assert.match(migration, /BID_NOT_FOUND_OR_FORBIDDEN/i);
+  assert.match(migration, /AUCTION_NOT_ACTIVE/i);
+  assert.match(migration, /AUCTION_ENDED/i);
+  assert.match(migration, /coalesce\(v_new_price, v_auction\.starting_price\)/i);
+  assert.match(migration, /revoke all on function public\.delete_bid\(uuid, uuid\)/i);
+  assert.match(migration, /grant execute on function public\.delete_bid\(uuid, uuid\)/i);
+});
+
+test('password reset migration consumes tokens and revokes sessions atomically', () => {
+  const migration = fs.readFileSync(
+    path.join(__dirname, '../src/db/migrations/0011_password_reset_atomic.sql'),
+    'utf8'
+  );
+  assert.match(migration, /for update/i);
+  assert.match(migration, /used_at = clock_timestamp\(\)/i);
+  assert.match(migration, /session_version = u\.session_version \+ 1/i);
+  assert.match(migration, /revoke all on function public\.consume_password_reset\(text, text\)/i);
+  assert.match(migration, /grant execute on function public\.consume_password_reset\(text, text\)[\r\n\s]+to service_role/i);
+});
+
 test('database migration keeps atomic bidding/closing in SECURITY DEFINER routines', () => {
   const migration = fs.readFileSync(path.join(__dirname, '../src/db/migrations/008_email_outbox.sql'), 'utf8');
   assert.match(migration, /security definer/i);
@@ -444,7 +708,7 @@ test('database migration keeps atomic bidding/closing in SECURITY DEFINER routin
   assert.match(migration, /grant execute on function public\.place_bid\(uuid, uuid, numeric\) to service_role/i);
 });
 
-test('frontend auth token storage replaces prior value and removes it on logout', async () => {
+test('frontend auth token is not persisted in localStorage', async () => {
   const values = new Map();
   global.window = {
     localStorage: {
@@ -455,12 +719,12 @@ test('frontend auth token storage replaces prior value and removes it on logout'
   };
   try {
     const { clearAuthToken, getAuthToken, saveAuthToken } = await import('../../client/src/utils/authToken.js');
-    saveAuthToken('old-jwt');
-    assert.equal(getAuthToken(), 'old-jwt');
+    values.set('auction_token', 'legacy-jwt');
+    assert.equal(getAuthToken(), null);
     saveAuthToken('new-jwt');
-    assert.equal(getAuthToken(), 'new-jwt', 'login replaces the prior stored token');
+    assert.equal(getAuthToken(), null);
     clearAuthToken();
-    assert.equal(getAuthToken(), null, 'logout removes the stored token');
+    assert.equal(values.get('auction_token'), undefined);
   } finally {
     delete global.window;
   }

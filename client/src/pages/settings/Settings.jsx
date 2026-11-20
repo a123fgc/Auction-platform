@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { updateProfileApi, changePasswordApi } from '../../api/profile.api';
 import Toast from '../../components/common/Toast';
@@ -20,6 +20,14 @@ export default function Settings() {
 
   const [pwd, setPwd] = useState({ current_password: '', new_password: '' });
   const [changingPwd, setChangingPwd] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreview?.startsWith('blob:')) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview]);
 
   const showToast = (msg, tone = 'success') => {
     setToast({ msg, tone });
@@ -182,7 +190,7 @@ export default function Settings() {
           <input
             type="password"
             required
-            minLength={6}
+            minLength={12}
             value={pwd.new_password}
             onChange={(e) => setPwd({ ...pwd, new_password: e.target.value })}
             className="w-full rounded border border-slate-300 px-3 py-2"

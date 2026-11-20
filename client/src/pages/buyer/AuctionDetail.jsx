@@ -20,7 +20,13 @@ export default function AuctionDetail() {
   const [livePrice, setLivePrice] = useState(null);
   const [refreshBids, setRefreshBids] = useState(0);
   const [toast, setToast] = useState('');
+  const [now, setNow] = useState(Date.now());
   const toastTimer = useRef(null);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -110,7 +116,7 @@ export default function AuctionDetail() {
   const isSeller = auction.seller_id === user?.id;
   const isEnded =
     auction.status !== 'active' ||
-    new Date(auction.ends_at).getTime() <= Date.now();
+    new Date(auction.ends_at).getTime() <= now;
 
   const handleBid = async (amount) => {
     await placeBidApi(id, amount);

@@ -39,6 +39,16 @@ async function markUsed(id) {
   if (error) throw error;
 }
 
+async function consume({ tokenHash, passwordHash }) {
+  const { data, error } = await supabase.rpc('consume_password_reset', {
+    p_token_hash: tokenHash,
+    p_password_hash: passwordHash,
+  });
+  if (error) throw error;
+  const rows = Array.isArray(data) ? data : data ? [data] : [];
+  return rows[0] || null;
+}
+
 async function deleteExpired() {
   const { error } = await supabase
     .from('password_reset_tokens')
@@ -51,5 +61,6 @@ module.exports = {
   create,
   findValidByHash,
   markUsed,
+  consume,
   deleteExpired,
 };

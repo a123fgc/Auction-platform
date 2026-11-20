@@ -43,7 +43,7 @@ export default function ResetPassword() {
       return;
     }
     if (form.new_password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError('Password must be at least 12 characters');
       return;
     }
     setLoading(true);
@@ -109,7 +109,7 @@ export default function ResetPassword() {
               name="new_password"
               value={form.new_password}
               onChange={onChange}
-              minLength={6}
+              minLength={12}
             />
           </div>
           <div>
@@ -120,7 +120,7 @@ export default function ResetPassword() {
               name="confirm"
               value={form.confirm}
               onChange={onChange}
-              minLength={6}
+              minLength={12}
             />
           </div>
           <button
