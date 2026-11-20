@@ -5,7 +5,7 @@ const env = require("./config/env");
 const { errorHandler, notFoundHandler } = require("./middleware/errorHandler");
 const csrfProtection = require("./middleware/csrf");
 const supabase = require("./config/supabase");
-
+const webhookRoutes = require("./routes/webhook.routes");
 const authRoutes = require("./routes/auth.routes");
 const auctionRoutes = require("./routes/auction.routes");
 const sellerRoutes = require("./routes/seller.routes");
@@ -14,8 +14,6 @@ const adminRoutes = require("./routes/admin.routes");
 const profileRoutes = require("./routes/profile.routes");
 
 const app = express();
-const webhookRoutes = require("./routes/webhook.routes");
-app.use("/api/webhooks", webhookRoutes);
 
 app.use(
   cors({
@@ -25,6 +23,7 @@ app.use(
 );
 app.use(express.json({ limit: "5mb" }));
 app.use(cookieParser());
+app.use("/api/webhooks", webhookRoutes);
 app.use(csrfProtection);
 
 // Liveness only: the process is accepting HTTP requests.
