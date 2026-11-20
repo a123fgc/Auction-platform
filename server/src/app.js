@@ -12,7 +12,7 @@ const sellerRoutes = require('./routes/seller.routes');
 const bidRoutes = require('./routes/bid.routes');
 const adminRoutes = require('./routes/admin.routes');
 const profileRoutes = require('./routes/profile.routes');
-
+const webhookRoutes = require('./routes/webhook.routes');
 
 const app = express();
 
@@ -45,6 +45,7 @@ app.use('/api/seller', sellerRoutes);
 app.use('/api', bidRoutes); 
 app.use('/api/admin', adminRoutes);
 app.use('/api', profileRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
