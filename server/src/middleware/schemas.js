@@ -61,7 +61,7 @@ const signupSchema = z
   .object({
     full_name: z.string().min(2, "Name too short").max(80),
     email: z.string().email("Invalid email"),
-    password: z.string().min(6, "Password must be at least 6 chars").max(72),
+    password: z.string().min(12, "Password must be at least 12 chars").max(72),
     role: z.enum(["buyer", "seller"]).default("buyer"),
   })
   .strict();
@@ -159,7 +159,7 @@ const passwordChangeSchema = z.object({
   current_password: z.string().min(1, "Current password required"),
   new_password: z
     .string()
-    .min(6, "New password must be at least 6 chars")
+    .min(12, "New password must be at least 12 chars")
     .max(72, "Password too long"),
 });
 const forgotPasswordSchema = z.object({
@@ -170,7 +170,7 @@ const resetPasswordSchema = z.object({
   token: z.string().min(16, 'Invalid token'),
   new_password: z
     .string()
-    .min(6, 'Password must be at least 6 chars')
+    .min(12, 'Password must be at least 12 chars')
     .max(72, 'Password too long'),
 });
 // ─── Exports ─────────────────────────────────────────────────────────

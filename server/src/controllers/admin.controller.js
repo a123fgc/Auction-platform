@@ -63,13 +63,9 @@ const listAuctions = asyncHandler(async (req, res) => {
 
 const removeAuction = asyncHandler(async (req, res) => {
   const { id } = req.validatedParams;
-  const auction = await auctionRepo.findById(id);
-  if (!auction) throw ApiError.notFound('Auction not found');
-
-  const { error } = await supabase.from('auctions').delete().eq('id', id);
-  if (error) throw error;
-
-  res.json({ message: 'Auction removed', id });
+  const removed = await auctionRepo.removeAtomic(id, req.user.id);
+  if (!removed) throw ApiError.notFound('Auction not found');
+  res.json({ message: 'Auction removed', id, auction: removed });
 });
 
 const closeAuction = asyncHandler(async (req, res) => {

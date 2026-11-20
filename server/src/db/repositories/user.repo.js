@@ -100,6 +100,23 @@ async function updatePassword(id, password_hash) {
   return data;
 }
 
+async function updatePasswordAndRevoke(id, password_hash) {
+  const user = await findById(id);
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("users")
+    .update({
+      password_hash,
+      session_version: user.session_version + 1,
+    })
+    .eq("id", id)
+    .select("id,session_version")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 async function getPublicProfile(id) {
   const { data, error } = await supabase
     .from("users")
@@ -124,6 +141,7 @@ module.exports = {
   revokeSessions,
   updateProfile,
   updatePassword,
+  updatePasswordAndRevoke,
   getPublicProfile,
   findByIdWithPassword,
 };

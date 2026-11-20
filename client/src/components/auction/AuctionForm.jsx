@@ -37,6 +37,12 @@ export default function AuctionForm({
     [files]
   );
 
+  useEffect(() => {
+    return () => {
+      previewFiles.forEach((preview) => URL.revokeObjectURL(preview.url));
+    };
+  }, [previewFiles]);
+
   const onChange = (e) =>
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 

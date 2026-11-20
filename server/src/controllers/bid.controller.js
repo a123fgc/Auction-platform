@@ -6,7 +6,7 @@ const place = asyncHandler(async (req, res) => {
   const { auctionId } = req.validatedParams;
   const { amount } = req.body;
 
-  const { bid, auction, previousBidderId } = await bidService.placeBid(
+  const { bid, auction } = await bidService.placeBid(
     req.user,
     auctionId,
     amount
@@ -22,7 +22,6 @@ const place = asyncHandler(async (req, res) => {
     },
     currentPrice: Number(auction.current_price),
     endsAt: auction.ends_at,
-    previousBidderId,
   };
 
   emitNewBid(auctionId, payload);

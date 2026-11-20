@@ -123,6 +123,15 @@ async function cancel(id, actorId) {
   return Array.isArray(data) ? data[0] || null : data;
 }
 
+async function removeAtomic(id, actorId) {
+  const { data, error } = await supabase.rpc('remove_auction_atomic', {
+    p_auction_id: id,
+    p_actor_id: actorId,
+  });
+  if (error) throw error;
+  return Array.isArray(data) ? data[0] || null : data;
+}
+
 module.exports = {
   create,
   findById,
@@ -132,4 +141,5 @@ module.exports = {
   listExpiredActive,
   closeAtomic,
   cancel,
+  removeAtomic,
 };

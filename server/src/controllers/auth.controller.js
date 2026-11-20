@@ -3,6 +3,7 @@ const { asyncHandler } = require("../middleware/errorHandler");
 const env = require("../config/env");
 const { disconnectUserSockets } = require("../sockets");
 const passwordResetService = require("../services/passwordReset.service");
+const ApiError = require("../utils/ApiError");
 
 const COOKIE_OPTS = {
   httpOnly: true,
@@ -62,7 +63,8 @@ const verifyResetToken = asyncHandler(async (req, res) => {
 const resetPassword = asyncHandler(async (req, res) => {
   const { token, new_password } = req.body;
   const result = await passwordResetService.resetPassword(token, new_password);
-  res.json(result);
+  disconnectUserSockets(result.userId);
+  res.json({ message: result.message });
 });
 
 module.exports = {
